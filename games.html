@@ -1,1 +1,373 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>Tebak-Tebakan — Mobile Game</title>
+  <style>
+    :root{
+      --bg:#f6f7fb; --card:#ffffff; --text:#0b1220; --muted:#6b7280; --accent:#06b6d4; --success:#10b981;
+    }
+    .dark{--bg:#0b1020;--card:#0f1724;--text:#e6eef8;--muted:#9aa6b2;--accent:#34d399;--success:#22c55e}
 
+    html,body{height:100%;margin:0;font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background:var(--bg); color:var(--text); -webkit-tap-highlight-color:transparent}
+    .app{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:18px;box-sizing:border-box}
+
+    .topbar{width:100%;max-width:720px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+    .brand{font-weight:700;letter-spacing:0.2px}
+    .controls{display:flex;gap:8px;align-items:center}
+    button{appearance:none;border:0;background:transparent;color:var(--text);padding:8px 12px;border-radius:12px;font-weight:600}
+    .btn-filled{background:linear-gradient(90deg,var(--accent),#60a5fa);color:white}
+    .btn-ghost{background:rgba(0,0,0,0.06)}
+
+    .card{width:100%;max-width:720px;background:var(--card);border-radius:14px;padding:16px;box-shadow:0 6px 20px rgba(8,15,30,0.06);box-sizing:border-box}
+
+    .level-select{display:flex;gap:8px;overflow:auto;padding-bottom:8px;margin-bottom:8px}
+    .level-pill{padding:8px 12px;border-radius:999px;background:rgba(0,0,0,0.04);white-space:nowrap;font-weight:700}
+    .level-pill.active{background:linear-gradient(90deg,var(--accent),#60a5fa);color:white}
+
+    .question-area{margin-top:8px}
+    .qnum{font-size:13px;color:var(--muted);margin-bottom:6px}
+    .question{font-size:18px;font-weight:700;margin-bottom:12px;line-height:1.3}
+
+    .options{display:grid;grid-template-columns:1fr;gap:10px}
+    .option{padding:12px;border-radius:10px;border:1px solid rgba(0,0,0,0.06);background:transparent;font-weight:700}
+    .option.selected{border-color:var(--accent);box-shadow:0 4px 12px rgba(6,182,212,0.12)}
+    .option.correct{border-color:var(--success);background:rgba(16,185,129,0.06)}
+    .option.wrong{background:rgba(239,68,68,0.06);border-color:rgba(239,68,68,0.18)}
+
+    .footer{display:flex;gap:8px;margin-top:14px;align-items:center;justify-content:space-between}
+    .progress{flex:1;height:10px;background:rgba(0,0,0,0.06);border-radius:999px;overflow:hidden;margin-right:12px}
+    .progress > i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),#7c3aed);width:0%}
+
+    .scoreboard{margin-top:12px;display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+    .score-card{padding:10px;border-radius:10px;background:linear-gradient(180deg,rgba(0,0,0,0.03),transparent)}
+    .big{font-size:20px;font-weight:800}
+    .small{font-size:12px;color:var(--muted)}
+
+    .actions{display:flex;gap:8px}
+
+    /* full mobile layout tweaks */
+    @media(min-width:720px){.app{padding:28px}.card{padding:20px}}
+
+    /* subtle responsive touch targets */
+    button, .option{touch-action:manipulation}
+
+    /* tiny helper */
+    .muted{color:var(--muted)}
+    .center{text-align:center}
+  </style>
+</head>
+<body>
+  <div id="root" class="app">
+    <div class="topbar" role="banner">
+      <div class="brand">Tebak-Tebakan</div>
+      <div class="controls">
+        <div id="darkToggle" title="Dark mode" role="button" aria-label="toggle dark mode">🌙</div>
+        <button id="btnRestart" class="btn-ghost" title="Mulai ulang level">Restart Level</button>
+      </div>
+    </div>
+
+    <div class="card" role="main">
+      <div class="level-select" id="levelSelect" aria-label="Pilih level"></div>
+
+      <div class="question-area">
+        <div class="qnum" id="qnum">Level 1 · Pertanyaan 1 dari 10</div>
+        <div class="question" id="question">Memuat soal...</div>
+        <div class="options" id="options"></div>
+
+        <div class="footer">
+          <div style="display:flex;align-items:center;flex:1">
+            <div class="progress" aria-hidden="true"><i id="progressBar"></i></div>
+            <div class="muted" id="progressText">0 / 10</div>
+          </div>
+          <div class="actions">
+            <button id="btnSkip" class="btn-ghost">Lewati</button>
+            <button id="btnSubmit" class="btn-filled">Jawab</button>
+          </div>
+        </div>
+
+        <div class="scoreboard" id="scoreboard">
+          <div class="score-card"><div class="big" id="curScore">0</div><div class="small">Skor Saat Ini</div></div>
+          <div class="score-card"><div class="big" id="totalHigh">0</div><div class="small">Rekor Total (Local)</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div style="max-width:720px;width:100%;margin-top:12px;display:flex;gap:8px">
+      <button id="btnPrev" class="btn-ghost">Sebelumnya</button>
+      <button id="btnNext" class="btn-filled">Berikutnya</button>
+    </div>
+
+    <div style="max-width:720px;width:100%;margin-top:12px;text-align:center;color:var(--muted);font-size:13px">5 level • 10 pertanyaan tiap level • Dibuat tanpa aset • Mobile-friendly</div>
+  </div>
+
+  <script>
+    // ===== Data: 5 level x 10 pertanyaan =====
+    // Each question: {q: string, opts: [4], a: index}
+    const LEVELS = [
+      // Level 1 - mudah
+      [
+        {q:"Apa warna langit saat cerah?", opts:["Merah","Biru","Hijau","Kuning"], a:1},
+        {q:"2 + 2 = ?", opts:["3","4","5","6"], a:1},
+        {q:"Bahasa pemrograman yang terkenal menggunakan 'console.log' adalah?", opts:["Python","JavaScript","Ruby","Go"], a:1},
+        {q:"Ibukota Indonesia?", opts:["Bandung","Surabaya","Jakarta","Medan"], a:2},
+        {q:"Binatang yang bisa menggonggong?", opts:["Kucing","Anjing","Ikan","Burung"], a:1},
+        {q:"Buah yang berwarna oranye umumnya?", opts:["Apel","Pisang","Jeruk","Anggur"], a:2},
+        {q:"Siapa yang sering disebut 'Bapak Proklamator' di Indonesia?", opts:["Sukarno","Habibie","Soeharto","Gus Dur"], a:0},
+        {q:"Satu jam = ? menit", opts:["30","45","60","90"], a:2},
+        {q:"Alat musik tiup: ?", opts:["Gitar","Piano","Saxophone","Drum"], a:2},
+        {q:"Arah mata angin di atas peta biasanya di?", opts:["Selatan","Barat","Utara","Tengah"], a:2}
+      ],
+      // Level 2 - normal
+      [
+        {q:"Planet terkecil di tata surya (sejak 2006 tidak termasuk Pluto)", opts:["Merkurius","Mars","Venus","Neptunus"], a:0},
+        {q:"Apa hasil dari 12 x 12?", opts:["124","144","134","154"], a:1},
+        {q:"Bahasa yang banyak dipakai untuk analisis data: ?", opts:["C++","R","HTML","CSS"], a:1},
+        {q:"Pulau terbesar di Indonesia adalah?", opts:["Kalimantan","Sumatera","Jawa","Sulawesi"], a:0},
+        {q:"Sungai terpanjang di dunia (tradisional)?", opts:["Nil","Amazon","Yangtze","Mississippi"], a:1},
+        {q:"Simbol kimia O adalah?", opts:["Osmium","Oksigen","Perak","Oganesson"], a:1},
+        {q:"Ibukota Jepang?", opts:["Kyoto","Osaka","Tokyo","Hiroshima"], a:2},
+        {q:"Apa mata uang resmi Inggris?", opts:["Euro","Dollar","Pound Sterling","Yen"], a:2},
+        {q:"Berapakah akar kuadrat dari 81?", opts:["7","8","9","10"], a:2},
+        {q:"Hari kemerdekaan Indonesia jatuh pada tanggal?", opts:["17 Agustus","10 November","1 Juni","20 Mei"], a:0}
+      ],
+      // Level 3 - sulit
+      [
+        {q:"Siapa penemu lampu pijar yang sering disebut?", opts:["Nikola Tesla","Isaac Newton","Thomas Edison","Alexander Graham Bell"], a:2},
+        {q:"Satuan arus listrik adalah?", opts:["Volt","Ohm","Ampere","Watt"], a:2},
+        {q:"Sistem operasi open-source yang populer: ?", opts:["Windows","macOS","Linux","iOS"], a:2},
+        {q:"Siapa pengarang novel 'Laskar Pelangi'?", opts:["Andrea Hirata","Pramoedya Ananta","Tere Liye","Ahmad Fuadi"], a:0},
+        {q:"Berapakah 15% dari 200?", opts:["20","25","30","35"], a:2},
+        {q:"Ibukota Perancis?", opts:["Lyon","Marseille","Paris","Nice"], a:2},
+        {q:"Singkatan HTML berdiri untuk?", opts:["Hyperlinks and Text Markup","Home Tool Markup Language","HyperText Markup Language","HighText Machine Language"], a:2},
+        {q:"Jarak bumi-bulan kira-kira (km)?", opts:["384.400","1.000.000","150.000","40.000"], a:0},
+        {q:"Apa sinonim dari 'cepat'?", opts:["Lambat","Lekas","Lemah","Lamban"], a:1},
+        {q:"Sistem bilangan biner hanya menggunakan digit?", opts:["0 dan 1","0 sampai 2","1 sampai 9","0 sampai 9"], a:0}
+      ],
+      // Level 4 - ahli
+      [
+        {q:"Apa rumus Luas lingkaran?", opts:["2πr","πr^2","πd","2rπ"], a:1},
+        {q:"Siapa yang menulis Hamlet?", opts:["Dante Alighieri","William Shakespeare","Leo Tolstoy","Homer"], a:1},
+        {q:"Protokol aman untuk web biasanya memakai?", opts:["HTTP","FTP","SSH","HTTPS"], a:3},
+        {q:"Apa warna komplementer dari merah?", opts:["Hijau","Biru","Kuning","Hitam"], a:0},
+        {q:"Suku bunga simple interest dihitung dari?", opts:["Jumlah pokok x bunga x waktu","Jumlah pokok + bunga","Hanya bunga","Hanya pokok"], a:0},
+        {q:"Siapakah penemu telepon?", opts:["Guglielmo Marconi","Alexander Graham Bell","Thomas Edison","Samuel Morse"], a:1},
+        {q:"Apa ibu kota Kanada?", opts:["Toronto","Vancouver","Ottawa","Montreal"], a:2},
+        {q:"Kapan Perang Dunia II berakhir? (tahun)", opts:["1944","1945","1939","1950"], a:1},
+        {q:"Unit untuk energi adalah?", opts:["Newton","Joule","Pascal","Watt"], a:1},
+        {q:"Dalam JS, cara menulis komentar satu baris?", opts:["/* ... */","-- ...","// ...","## ..."], a:2}
+      ],
+      // Level 5 - master
+      [
+        {q:"Apa konstanta matematika e (≈)?", opts:["2.72","3.14","1.41","1.62"], a:0},
+        {q:"Hukum Newton ke-2 menyatakan F = m * a. F adalah?", opts:["Gaya","Massa","Percepatan","Energi"], a:0},
+        {q:"Siapa penemu kalkulus (bersaing klaim)?", opts:["Newton & Leibniz","Gauss","Euler","Fermat"], a:0},
+        {q:"Berapakah jumlah proton dalam inti karbon-12?", opts:["6","12","8","14"], a:0},
+        {q:"Apa nama partikel dasar bermuatan negatif?", opts:["Proton","Elektron","Neutron","Quark"], a:1},
+        {q:"Bahasa yang dikompilasi menjadi bytecode .class adalah?", opts:["Java","Python","JavaScript","Ruby"], a:0},
+        {q:"Apa nama pelengkap dalam kriptografi: kunci privat & ?", opts:["Publik","Rahasia","Tersembunyi","Random"], a:0},
+        {q:"Siapa penulis '1984'?", opts:["George Orwell","Aldous Huxley","Ray Bradbury","J.K. Rowling"], a:0},
+        {q:"Konstanta gravitasi pada permukaan bumi (m/s^2) mendekati?", opts:["9.81","10.5","8.4","9.0"], a:0},
+        {q:"Apa singkatan dari CPU?", opts:["Central Processing Unit","Control Power Unit","Central Power Unit","Compute Processing Unit"], a:0}
+      ]
+    ];
+
+    // ===== State =====
+    let currentLevel = 0; // 0..4
+    let qIndex = 0; // 0..9
+    let selected = null;
+    let score = 0;
+    const totalLevels = LEVELS.length;
+
+    // load high score
+    function loadHigh(){
+      try{return JSON.parse(localStorage.getItem('tt_high')||'{}')}catch(e){return{}}}
+    function saveHigh(h){localStorage.setItem('tt_high',JSON.stringify(h))}
+
+    const high = loadHigh();
+
+    // ===== UI refs =====
+    const levelSelect = document.getElementById('levelSelect');
+    const qnum = document.getElementById('qnum');
+    const questionEl = document.getElementById('question');
+    const optionsEl = document.getElementById('options');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+    const btnSubmit = document.getElementById('btnSubmit');
+    const btnSkip = document.getElementById('btnSkip');
+    const btnPrev = document.getElementById('btnPrev');
+    const btnNext = document.getElementById('btnNext');
+    const btnRestart = document.getElementById('btnRestart');
+    const curScore = document.getElementById('curScore');
+    const totalHigh = document.getElementById('totalHigh');
+    const darkToggle = document.getElementById('darkToggle');
+
+    // build level pills
+    function renderLevelPills(){
+      levelSelect.innerHTML='';
+      for(let i=0;i<totalLevels;i++){
+        const p = document.createElement('div');
+        p.className='level-pill'+(i===currentLevel?' active':'');
+        p.textContent = 'Level '+(i+1);
+        p.tabIndex=0;
+        p.addEventListener('click',()=>{switchLevel(i)});
+        levelSelect.appendChild(p);
+      }
+    }
+
+    function renderQuestion(){
+      const q = LEVELS[currentLevel][qIndex];
+      qnum.textContent = 'Level '+(currentLevel+1)+' · Pertanyaan '+(qIndex+1)+' dari 10';
+      questionEl.textContent = q.q;
+      optionsEl.innerHTML='';
+      selected = null;
+      q.opts.forEach((o,idx)=>{
+        const b = document.createElement('button');
+        b.className='option';
+        b.textContent = o;
+        b.addEventListener('click',()=>{
+          // select
+          [...optionsEl.children].forEach(x=>x.classList.remove('selected'));
+          b.classList.add('selected');
+          selected = idx;
+        });
+        optionsEl.appendChild(b);
+      });
+      updateProgress();
+    }
+
+    function updateProgress(){
+      progressBar.style.width = ((qIndex+1)/10*100)+'%';
+      progressText.textContent = (qIndex+1)+' / 10';
+      curScore.textContent = score;
+      // compute total high as sum of per-level highs
+      let sum=0; Object.values(high||{}).forEach(v=>sum+=v); totalHigh.textContent = sum;
+      renderLevelPills();
+    }
+
+    function submitAnswer(){
+      const q = LEVELS[currentLevel][qIndex];
+      if(selected === null){
+        // treat nothing selected as skip (no penalty)
+        nextQuestion();
+        return;
+      }
+      const opts = optionsEl.children;
+      // mark correct/wrong
+      for(let i=0;i<opts.length;i++){
+        opts[i].classList.remove('selected');
+        if(i===q.a) opts[i].classList.add('correct');
+        if(i===selected && i!==q.a) opts[i].classList.add('wrong');
+        opts[i].disabled = true;
+      }
+      // scoring: correct +10
+      if(selected === q.a){ score += 10 }
+      // update per-level high
+      const currLevelHigh = high['l'+currentLevel]||0;
+      const potential = (scorePerLevel(currentLevel) + (selected===q.a?10:0));
+      // we update high only when level finished (after 10 q)
+      // small delay before next question so player sees feedback
+      setTimeout(()=>{ nextQuestion() }, 700);
+      updateProgress();
+    }
+
+    function scorePerLevel(lvl){
+      // recompute score for completed questions in this level based on answered history saved in stateHistory
+      return stateHistory[lvl]?.reduce((s,v)=>s+ (v?10:0),0) || 0;
+    }
+
+    // Keep per-level answered correctness history
+    const stateHistory = LEVELS.map(()=>Array(10).fill(null));
+
+    function nextQuestion(){
+      // save the answer of current q: true if correct
+      if(selected !== null){ stateHistory[currentLevel][qIndex] = (selected===LEVELS[currentLevel][qIndex].a) }
+      // advance
+      if(qIndex < 9){ qIndex++; renderQuestion(); }
+      else { // level finished
+        // compute level score
+        const lvlScore = stateHistory[currentLevel].reduce((s,v)=>s+(v?10:0),0);
+        high['l'+currentLevel] = Math.max(high['l'+currentLevel]||0, lvlScore);
+        saveHigh(high);
+        // show finished UI briefly
+        showLevelComplete(lvlScore);
+      }
+      selected = null;
+      updateProgress();
+    }
+
+    function prevQuestion(){
+      if(qIndex>0){ qIndex--; renderQuestion(); }
+    }
+
+    function skipQuestion(){
+      // record null (skipped) and move on
+      stateHistory[currentLevel][qIndex] = null;
+      if(qIndex<9){ qIndex++; renderQuestion(); }
+      else { // finish
+        const lvlScore = stateHistory[currentLevel].reduce((s,v)=>s+(v?10:0),0);
+        high['l'+currentLevel] = Math.max(high['l'+currentLevel]||0, lvlScore);
+        saveHigh(high);
+        showLevelComplete(lvlScore);
+      }
+      selected = null; updateProgress();
+    }
+
+    function showLevelComplete(lvlScore){
+      // simple modal-like card in question area
+      questionEl.textContent = 'Level '+(currentLevel+1)+' selesai! Skor: '+lvlScore;
+      optionsEl.innerHTML = '';
+      const replay = document.createElement('div');
+      replay.className='center muted';
+      replay.style.marginTop='10px';
+      replay.textContent = 'Gunakan tombol Level di atas untuk pindah, atau lanjut ke level berikutnya.';
+      optionsEl.appendChild(replay);
+      // reset qIndex to 0 to allow replay
+      qIndex = 0;
+      score = Object.values(high||{}).reduce((s,v)=>s+v,0); // total score reflects bests
+      updateProgress();
+    }
+
+    function switchLevel(i){
+      currentLevel = i; qIndex = 0; selected = null; // do not reset stateHistory so user progress in each level persists
+      renderQuestion();
+      updateProgress();
+    }
+
+    function restartLevel(){
+      stateHistory[currentLevel] = Array(10).fill(null);
+      qIndex = 0; selected = null; score = Object.values(high||{}).reduce((s,v)=>s+v,0);
+      renderQuestion(); updateProgress();
+    }
+
+    // event wiring
+    btnSubmit.addEventListener('click',submitAnswer);
+    btnSkip.addEventListener('click',skipQuestion);
+    btnNext.addEventListener('click',()=>{ if(qIndex<9) nextQuestion(); else { switchLevel(Math.min(totalLevels-1,currentLevel+1)) }});
+    btnPrev.addEventListener('click',prevQuestion);
+    btnRestart.addEventListener('click',restartLevel);
+
+    // dark mode toggle (persist)
+    const prefersDark = localStorage.getItem('tt_dark') === '1';
+    if(prefersDark) document.documentElement.classList.add('dark');
+    darkToggle.addEventListener('click',()=>{
+      const d = document.documentElement.classList.toggle('dark');
+      localStorage.setItem('tt_dark', d? '1':'0');
+    });
+
+    // init
+    renderLevelPills(); renderQuestion(); updateProgress();
+
+    // friendly mobile: focus management for keyboard users
+    document.addEventListener('keydown', (e)=>{
+      if(e.key === 'ArrowRight') btnNext.click();
+      if(e.key === 'ArrowLeft') btnPrev.click();
+      if(e.key === 'Enter') btnSubmit.click();
+    });
+
+    // mobile full: request minimal UI on iOS when user taps (optional)
+    // (left intentionally small — no external API)
+  </script>
+</body>
+</html>
